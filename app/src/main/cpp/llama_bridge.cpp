@@ -214,7 +214,6 @@ Java_com_sa_computebridge_engine_BrainNative_nativeGenerate(
     llama_sampler_chain_params sampler_params = llama_sampler_chain_default_params();
     llama_sampler *sampler = llama_sampler_chain_init(sampler_params);
     llama_sampler_chain_add(sampler, llama_sampler_init_penalties(
-        llama_vocab_n_tokens(g_vocab),
         penalty_last_n, penalty_repeat, penalty_freq, penalty_present));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(40));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(topP > 0 ? topP : 0.9f, 1));
