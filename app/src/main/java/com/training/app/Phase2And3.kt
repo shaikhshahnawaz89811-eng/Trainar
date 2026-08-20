@@ -51,8 +51,13 @@ fun Phase2Screen() {
     var connectionStep by remember { mutableIntStateOf(0) }
     var totalStepsText by remember { mutableStateOf("10000") }
     var learningRateText by remember { mutableStateOf("0.05") }
-    var modelReady by remember { mutableStateOf(engine.readSavedModel() != null) }
-    var corpusReady by remember { mutableStateOf(engine.hasTrainingCorpus()) }
+    var modelReady by remember { mutableStateOf(false) }
+    var corpusReady by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val ready = withContext(Dispatchers.IO) { engine.readSavedModel() != null to engine.hasTrainingCorpus() }
+        modelReady = ready.first
+        corpusReady = ready.second
+    }
 
     fun addConnection(session: WorkerSession) {
         if (connections.none { it.peer == session.peer }) {
@@ -171,16 +176,15 @@ fun Phase2Screen() {
                 onClick = {
                     val total = totalStepsText.toIntOrNull()?.coerceIn(1, 10_000) ?: 10_000
                     val lr = learningRateText.toFloatOrNull()?.takeIf { it > 0f } ?: 0.05f
-                    val corpus = engine.trainingCorpus()
-                    if (corpus == null) status = "Select training data in Phase 1 first"
-                    else if (connections.isEmpty()) status = "Connect at least one worker phone before distributed training"
+                    if (connections.isEmpty()) status = "Connect at least one worker phone before distributed training"
                     else {
                         training = true; status = "Starting real distributed training…"
                         trainingJob = scope.launch(Dispatchers.Default) {
                             try {
+                                val corpus = engine.trainingCorpus() ?: throw IllegalStateException("Select training data in Phase 1 first")
                                 val initial = engine.readSavedModel() ?: engine.createInitialModelFromCorpus(corpus)
                                 val finalModel = DistributedTrainingCoordinator(context, lan).train(initial, corpus, total, lr, connections.toList(), loadLimits.mapValues { it.value.toIntOrNull() ?: 0 }, { DeviceSafety.shouldPauseTraining(context) }, { progress ->
-                                    withContext(kotlinx.coroutines.Dispatchers.Main) { trainingProgress = progress }
+                                    scope.launch(kotlinx.coroutines.Dispatchers.Main) { trainingProgress = progress }
                                 }, { checkpoint ->
                                     engine.writeSavedModel(checkpoint)
                                 })

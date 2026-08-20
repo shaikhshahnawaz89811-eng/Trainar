@@ -102,7 +102,12 @@ private fun TrainingApp() {
     }
     val exportModel = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        message = if (engine.exportSavedModel(uri)) "Trained module exported" else "No saved trained module to export"
+        scope.launch(Dispatchers.IO) {
+            val ok = engine.exportSavedModel(uri)
+            withContext(Dispatchers.Main) {
+                message = if (ok) "Trained module exported" else "No saved trained module to export"
+            }
+        }
     }
     val exportPackage = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -131,11 +136,18 @@ private fun TrainingApp() {
                 else if (selectedFiles.sumOf { f -> f.content.toByteArray(Charsets.UTF_8).size } + input.content.toByteArray(Charsets.UTF_8).size > MAX_TRAINING_SESSION_BYTES) {
                     message = "Training data session is limited to 20 MB to avoid memory pressure"
                 } else {
-                    selectedFiles += input
-                    runCatching { engine.saveTrainingCorpus(selectedFiles.toList()) }
-                    corpusReadyForDistributed = true
-                    message = "Training data loaded: ${input.name}"
-                    showDevicePrompt = true
+                    val updatedFiles = selectedFiles.toList() + input
+                    val saved = withContext(Dispatchers.IO) {
+                        runCatching { engine.saveTrainingCorpus(updatedFiles) }.isSuccess
+                    }
+                    if (!saved) {
+                        message = "Training data could not be saved safely"
+                    } else {
+                        selectedFiles += input
+                        corpusReadyForDistributed = true
+                        message = "Training data loaded: ${input.name}"
+                        showDevicePrompt = true
+                    }
                 }
             }
         }

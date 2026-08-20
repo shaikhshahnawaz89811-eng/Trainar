@@ -31,6 +31,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.camera.core.ExperimentalGetImage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class LanQrPayload(val host: String, val port: Int, val code: String, val maxDevices: Int)
 
@@ -62,8 +64,15 @@ fun createQrBitmap(value: String, size: Int = 720): Bitmap {
 
 @Composable
 fun LanQrCode(value: String, modifier: Modifier = Modifier) {
-    val bitmap = remember(value) { createQrBitmap(value) }
-    Image(bitmap.asImageBitmap(), "LAN pairing QR code", modifier.size(280.dp))
+    var bitmap by remember(value) { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(value) {
+        bitmap = withContext(Dispatchers.Default) { createQrBitmap(value) }
+    }
+    bitmap?.let {
+        Image(it.asImageBitmap(), "LAN pairing QR code", modifier.size(280.dp))
+    } ?: Box(modifier.size(280.dp), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
+    }
 }
 
 @Composable
@@ -86,27 +95,54 @@ fun LanQrScanner(onDecoded: (String) -> Unit, onClose: () -> Unit) {
         }
         return
     }
+    val scannerCleanup = remember { mutableStateOf<(() -> Unit)?>(null) }
+    val scannerDisposed = remember { AtomicBoolean(false) }
+    DisposableEffect(Unit) {
+        onDispose {
+            scannerDisposed.set(true)
+            scannerCleanup.value?.invoke()
+        }
+    }
     Column(Modifier.fillMaxWidth()) {
         AndroidView(
-            factory = { PreviewView(it) },
-            modifier = Modifier.fillMaxWidth().height(360.dp),
-            update = { previewView ->
-                val future = ProcessCameraProvider.getInstance(context)
+            factory = { viewContext ->
+                val previewView = PreviewView(viewContext)
+                val future = ProcessCameraProvider.getInstance(viewContext)
                 future.addListener({
+                    if (scannerDisposed.get()) return@addListener
                     val camera = future.get()
                     val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
-                    val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
+                    val analysis = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
                     val executor = Executors.newSingleThreadExecutor()
+                    val cleanedUp = AtomicBoolean(false)
+                    val cleanup = {
+                        if (cleanedUp.compareAndSet(false, true)) {
+                            analysis.clearAnalyzer()
+                            camera.unbindAll()
+                            executor.shutdownNow()
+                        }
+                    }
+                    scannerCleanup.value = cleanup
+                    if (scannerDisposed.get()) {
+                        cleanup()
+                        return@addListener
+                    }
                     analysis.setAnalyzer(executor, QrAnalyzer { text ->
-                        camera.unbindAll()
-                        ContextCompat.getMainExecutor(context).execute { onDecoded(text) }
+                        cleanup()
+                        ContextCompat.getMainExecutor(viewContext).execute { onDecoded(text) }
                     })
                     runCatching {
                         camera.unbindAll()
                         camera.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+                    }.onFailure {
+                        cleanup()
                     }
-                }, ContextCompat.getMainExecutor(context))
-            }
+                }, ContextCompat.getMainExecutor(viewContext))
+                previewView
+            },
+            modifier = Modifier.fillMaxWidth().height(360.dp)
         )
         OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("CANCEL SCAN") }
     }
