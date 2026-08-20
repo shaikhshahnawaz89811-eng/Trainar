@@ -1,71 +1,48 @@
-# Multi-Phone AI Trainer
+# Compute Bridge — Worker APK
 
-Kotlin + Jetpack Compose Android app for the Multi-Phone AI Trainer plan.
+Compute Bridge is the worker-side Android application for a local distributed AI system.
 
-## Included
+## What is real in this project
 
-- Dark neon AI Training Center UI based on the supplied reference
-- Skill/module checkboxes persisted with DataStore
-- Basic / Intermediate / Advanced training level selector
-- Real Android document picker for readable text, JSON and CSV training data
-- Local bounded training queue with observable progress, steps and loss
-- Real on-device next-character SGD trainer for selected readable text, with measured loss/speed and private weight persistence
-- Export trained binary module action, disabled until a model is actually saved
-- Safe ZIP extraction with entry listing and path-traversal protection
-- Same-WiFi LAN TCP handshake on port 8765, pairing-code validation, and exchanged CPU/RAM/battery capability reports
-- Real QR generation on the master and CameraX/ZXing QR scanning on workers, including runtime camera permission handling
-- Groq via its real OpenAI-compatible API, plus any OpenAI-compatible custom endpoint
-- API keys encrypted with an Android Keystore AES-GCM key; keys are not hardcoded or shown after saving
-- Battery percentage and Android thermal status from device APIs
-- GitHub Actions workflow producing `app-debug.apk`
+- Android foreground worker service.
+- Local HTTP API bound to `0.0.0.0` for LAN/hotspot access.
+- QR pairing payload containing worker identity, address, port and pairing token.
+- NSD/DNS-SD advertisement using `_sa-compute._tcp` for local discovery.
+- Authenticated `/v1/pair`, `/v1/health`, `/v1/worker`, `/v1/models`, and OpenAI-compatible `/v1/chat/completions` endpoints.
+- Real GGUF model import through Android Storage Access Framework.
+- Real llama.cpp native inference through the JNI bridge.
+- Real token streaming for chat completions.
+- Disconnect-safe cancellation, prompt-size guards, pairing rate limiting and safe service shutdown.
+- Scroll-safe QR display and private-LAN address selection for Wi-Fi/hotspot pairing.
+- No bundled fake model and no scripted AI responses.
 
-## Build from Termux
+## Network modes
 
-```bash
-git add .
-git commit -m "Start Training Phase 1"
-git push origin main
-```
+1. Same Wi-Fi: both phones are on the same local network.
+2. Hotspot: one phone provides the hotspot and the other joins it.
 
-The APK appears in the GitHub Actions run as the `training-debug-apk` artifact.
+Internet access is not required for worker-to-client communication.
 
-The LAN connection is real TCP on the same Wi-Fi network; both phones must be able to reach port 8765. The master generates a QR containing the LAN host, port, pairing code and device limit; worker phones scan it after granting camera permission.
+## Build
 
-The evaluation screen makes a real OpenAI-compatible HTTP call. It does not fabricate a score, build result, test result, or code output. A custom app must expose `/chat/completions` and accept Bearer authentication, or the request will fail visibly.
+GitHub Actions builds the debug APK using Gradle 8.7, Android SDK 35, NDK 26.3.11579264 and CMake 3.22.1. llama.cpp is fetched from its pinned upstream tag during the native build.
 
-ZIP extraction and path validation are real on-device operations. An Android app cannot safely promise to install arbitrary project dependencies or run every desktop toolchain, so those results are not simulated.
+## Worker setup
 
-The local trainer is deliberately small: it learns next-character probabilities from selected text. It is not a claim that a full coding assistant or large language model is trained on-device.
-## Important load/training truth
+1. Install the APK on the worker phone.
+2. Connect the worker phone to Wi-Fi or the main phone's hotspot.
+3. Import a compatible `.gguf` model.
+4. Load the model.
+5. Start Worker.
+6. Show the QR code.
+7. The main app scans the QR payload and uses the returned local API address and pairing token.
 
-The LAN capability screen is intentionally honest: the saved percentage is a **workload target**, not a promise that Android will force an exact CPU percentage on a remote phone. The current release does not yet execute distributed training on workers. It is therefore safe to use for pairing/capability planning without pretending that remote compute has happened.
+## Worker usage limit
 
-The local trainer is real next-character SGD and now checkpoints every 100 steps. Severe/critical thermal state or very-low battery pauses work and leaves a resumable checkpoint. A process death can therefore resume from the latest checkpoint rather than silently starting from zero.
+The Worker app includes a real resource policy from 10% to 100%. The setting controls the llama.cpp CPU-thread count used at the next model load, maximum generation tokens, maximum context size, and a memory-budget admission check. The same setting is exposed through the authenticated `/v1/settings/resource` endpoint so a paired controller can read or update it.
 
-A trained module can be exported and later uploaded back into the app; the binary is validated before replacement. Uploading a module asks whether worker phones should be connected before continuing.
+The percentage is a compute policy, not a claim that Android can hard-throttle an app to an exact CPU percentage. Lowering the limit immediately affects new tasks; reload the model to apply a changed CPU-thread count.
 
-## Distributed training flow (current build)
+### Limit control behaviour
 
-1. Select training data in Phase 1. The corpus is persisted locally for the distributed trainer.
-2. Import a trained module if continuing from an existing model. The module is validated before replacement.
-3. Open Phase 2 on the master phone and start the LAN master. Share the generated QR only with intended workers.
-4. On each worker phone, open Phase 2 → Worker, scan the QR and connect.
-5. The master receives real CPU/RAM/battery capabilities over the authenticated TCP connection.
-6. Set each worker scheduling cap. The cap controls actual training-step allocation; it is not an OS-level CPU percentage guarantee.
-7. Start distributed training. Every round sends real model/corpus/job data to workers, workers compute their assigned steps, and the master merges returned weights.
-8. The master saves the merged model after every completed round. A failed worker round is not silently counted as complete.
-
-### Recovery
-
-- Worker disconnect during a round: the current round fails; the previous completed master model remains saved.
-- Master process loss: the last completed round remains in the saved model.
-- Thermal/battery protection: training stops before additional work and the saved state remains available.
-- The existing Phase 1 local checkpoint/resume flow remains available.
-
-### Scope boundary
-
-This source change intentionally implements the requested Phase 1–4 distributed-training path first. Physical multi-phone testing, final Android crash/device testing, and later Phase 5/6 work are deferred to the next pass.
-
-## Phase 5–6
-
-Phase 5 persists verified evaluation history, computes weak areas from real category scores, maintains a training queue, and stores a continuous-improvement state machine. Phase 6 provides the connected feature summary and final source-level safety status. Physical Android-device validation remains explicitly separate and is not falsely marked complete.
+The Worker UI exposes a 10%-100% slider in 10% steps. Saving the setting persists it in app storage. The effective policy is visible immediately in the UI and through the authenticated API. New inference requests are capped by the policy; model loading is blocked when the configured memory budget is exceeded. A changed CPU-thread allowance is applied on the next model load because llama.cpp creates the context with its thread count at load time.

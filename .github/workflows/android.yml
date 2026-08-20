@@ -1,45 +1,56 @@
-name: Android CI
+name: Android Build
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: gradle
+          distribution: temurin
+          java-version: '17'
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          gradle-version: '8.7'
+
+      - name: Install Android SDK components
+        uses: android-actions/setup-android@v3
+
+      - name: Install required SDK/NDK/CMake
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;26.3.11579264"
+
+      - name: Validate real worker source and build inputs
+        run: |
+          test -s app/src/main/cpp/llama_bridge.cpp
+          test -s app/src/main/cpp/CMakeLists.txt
+          grep -q "github.com/ggml-org/llama.cpp.git" app/src/main/cpp/CMakeLists.txt
+          grep -q "/v1/chat/completions" docs/protocol.md
+          grep -q "resource" docs/protocol.md
+          test -s app/src/main/AndroidManifest.xml
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: gradle --no-daemon --stacktrace assembleDebug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: compute-bridge-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

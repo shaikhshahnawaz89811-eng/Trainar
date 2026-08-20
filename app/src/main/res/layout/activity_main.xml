@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="#0B0F14">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="COMPUTE BRIDGE" android:textColor="#FFFFFF" android:textSize="26sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="WORKER MODE · Real local AI compute server" android:textColor="#52E878" android:textSize="14sp" android:layout_marginTop="4dp" />
+        <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Starting…" android:textColor="#B9C2CC" android:textSize="14sp" android:layout_marginTop="20dp" />
+        <TextView android:id="@+id/worker" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Server: STOPPED" android:textColor="#FFFFFF" android:textSize="18sp" android:layout_marginTop="16dp" />
+        <TextView android:id="@+id/device" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Worker information" android:textColor="#B9C2CC" android:textSize="14sp" android:layout_marginTop="8dp" />
+        <TextView android:id="@+id/model" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Model: none loaded" android:textColor="#FFFFFF" android:textSize="16sp" android:layout_marginTop="16dp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="24dp">
+            <Button android:id="@+id/start" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="START WORKER" />
+            <Space android:layout_width="12dp" android:layout_height="1dp" />
+            <Button android:id="@+id/stop" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="STOP" />
+        </LinearLayout>
+        <Button android:id="@+id/qr" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="SHOW QR / PAIRING" android:layout_marginTop="12dp" />
+        <Button android:id="@+id/import_model" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="IMPORT GGUF MODEL" android:layout_marginTop="12dp" />
+        <Button android:id="@+id/stop_task" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="STOP CURRENT AI TASK" android:layout_marginTop="12dp" />
+        <Button android:id="@+id/load_model" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="LOAD LAST MODEL" android:layout_marginTop="12dp" />
+        <TextView android:id="@+id/limit_label" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Worker usage limit: 50%" android:textColor="#FFFFFF" android:textSize="17sp" android:textStyle="bold" android:layout_marginTop="24dp" />
+        <SeekBar android:id="@+id/limit_seek" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="9" android:progress="4" android:layout_marginTop="8dp" />
+        <TextView android:id="@+id/limit_info" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Approx. CPU threads · Max output tokens · Max context" android:textColor="#B9C2CC" android:textSize="13sp" android:layout_marginTop="4dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="This is a real compute policy. It limits llama.cpp CPU threads on the next model load, caps output/context, and blocks work when the configured memory budget is exceeded. Android does not provide a portable exact CPU-percent throttle." android:textColor="#8F9AA6" android:textSize="12sp" android:layout_marginTop="6dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Connection: same Wi-Fi or phone hotspot. Internet is not required. Main app pairs using the QR payload and then calls the authenticated local API." android:textColor="#8F9AA6" android:textSize="13sp" android:layout_marginTop="24dp" />
+    </LinearLayout>
+</ScrollView>
