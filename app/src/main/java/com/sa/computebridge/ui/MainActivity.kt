@@ -22,6 +22,7 @@ import com.sa.computebridge.ResourceLimitStore
 import com.sa.computebridge.WorkerService
 import com.sa.computebridge.engine.BrainEngine
 import com.sa.computebridge.engine.ModelFileManager
+import com.sa.computebridge.engine.ImportProgress
 import com.sa.computebridge.network.PairingStore
 import kotlinx.coroutines.launch
 
@@ -57,9 +58,9 @@ class MainActivity : AppCompatActivity() {
             val name = "model-${System.currentTimeMillis()}.gguf"
             models.importModel(uri, name).collect { progress ->
                 when (progress) {
-                    is ModelFileManager.ImportProgress.Copying -> status.text = "Importing: ${progress.bytesCopied / 1024 / 1024} MB"
-                    is ModelFileManager.ImportProgress.Done -> { status.text = "Model imported: ${progress.file.name}"; refresh() }
-                    is ModelFileManager.ImportProgress.Failed -> status.text = "Import failed: ${progress.reason}"
+                    is ImportProgress.Copying -> status.text = "Importing: ${progress.bytesCopied / 1024 / 1024} MB"
+                    is ImportProgress.Done -> { status.text = "Model imported: ${progress.file.name}"; refresh() }
+                    is ImportProgress.Failed -> status.text = "Import failed: ${progress.reason}"
                 }
             }
         }
