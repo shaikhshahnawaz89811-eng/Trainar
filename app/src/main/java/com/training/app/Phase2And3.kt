@@ -54,7 +54,9 @@ fun Phase2Screen() {
     var modelReady by remember { mutableStateOf(false) }
     var corpusReady by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        val ready = withContext(Dispatchers.IO) { engine.readSavedModel() != null to engine.hasTrainingCorpus() }
+        val ready = withContext(Dispatchers.IO) {
+            Pair(engine.readSavedModel() != null, engine.hasTrainingCorpus())
+        }
         modelReady = ready.first
         corpusReady = ready.second
     }
